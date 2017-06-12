@@ -1,7 +1,15 @@
+import random
+
 from display import *
 from matrix import *
 from math import *
 from gmath import *
+
+
+def light(A, KA, L, dKA, sKA):
+    I_amb = A * KA
+
+    pass
 
 def add_polygon( polygons, x0, y0, z0, x1, y1, z1, x2, y2, z2 ):
     add_point(polygons, x0, y0, z0);
@@ -14,32 +22,38 @@ def draw_polygons( matrix, screen,zb, color ):
         return
 
     point = 0
-    r = 255
-    g = 255
-    b = 255
+    r = int(random.random()*255)
+    g = int(random.random()*255)
+    b = int(random.random()*255)
     
     while point < len(matrix) - 2:
 
         normal = calculate_normal(matrix, point)[:]
         print normal
         if normal[2] > 0:
-            scanline(matrix,screen,[r,g,b])
+            scanline(matrix,point,screen,zb,[r,g,b])
+            
             draw_line( int(matrix[point][0]),
                        int(matrix[point][1]),
+                       matrix[point][2],
                        int(matrix[point+1][0]),
                        int(matrix[point+1][1]),
-                       screen, color)
+                       matrix[point+1][2],
+                       screen, zb, color)
             draw_line( int(matrix[point+2][0]),
                        int(matrix[point+2][1]),
+                       matrix[point+2][2],
                        int(matrix[point+1][0]),
                        int(matrix[point+1][1]),
-                       screen, color)
+                       matrix[point+1][2],
+                       screen, zb, color)
             draw_line( int(matrix[point][0]),
                        int(matrix[point][1]),
+                       matrix[point][2],
                        int(matrix[point+2][0]),
                        int(matrix[point+2][1]),
-                       screen, color)    
-            point+= 3
+                       matrix[point+2][2],
+                       screen, zb, color)   
 
             r = (r + 31) % 256
             g = (r + 109) % 256
@@ -47,15 +61,14 @@ def draw_polygons( matrix, screen,zb, color ):
 
         point += 3
         
-def scanline(matrix, screen, color):
-    sorty = {matrix[0][0]:0,matrix[0][1]:1,matrix[0][2]:2}
-    output = sorted(sorty.keys())
-    p_low = matrix[sorty[output[0]]]
-    p_mid = matrix[sorty[output[1]]]
-    p_top = matrix[sorty[output[2]]]
+def scanline(matrix, i, screen, zbuffer, color):
+    output = sorted([matrix[i],matrix[i+1],matrix[i+2]],key=lambda x:(x[1],x[0]))
+    p_low = output[0]
+    p_mid = output[1]
+    p_top = output[2]
     
 
-    y0 = p_low[1]
+    z0 = p_low[2]
     x0 = p_low[0]
     d_x0 = ((1.0*(p_top[0]-p_low[0]))/(p_top[1]-p_low[1]))
     d_z0 = ((1.0*(p_top[2]-p_low[2]))/(1.0*(p_top[1]-p_low[1])))
@@ -74,7 +87,7 @@ def scanline(matrix, screen, color):
     y = p_low[1]
     i = 0
     while y < p_top[1]:
-        drawline(int(x0),int(y),int(z0),int(x1),int(y), int(z1), screen, zbuffer, color)
+        draw_line(int(x0),int(y),int(z0),int(x1),int(y), int(z1), screen, zbuffer, color)
 
         if(y < p_mid[1] and p_mid[1]-y <1):
             
@@ -83,7 +96,7 @@ def scanline(matrix, screen, color):
             y = p_mid[1]
             z0 = p_low[2] + (p_mid[1]-p_low[1])*d_z0
             z1 = p_mid[2]
-            drawline(int(x0),int(y),int(z0),int(x1),int(y), int(z1), screen, zbuffer, color)
+            draw_line(int(x0),int(y),int(z0),int(x1),int(y), int(z1), screen, zbuffer, color)
 
         if y == p_mid[1]:
             x1 = p_mid[0]
@@ -303,3 +316,75 @@ def add_edge( matrix, x0, y0, z0, x1, y1, z1 ):
 def add_point( matrix, x, y, z=0 ):
     matrix.append( [x, y, z, 1] )
     
+def draw_line( x0, y0, z0, x1, y1, z1, screen, zbuffer, color ):
+    if x0 > x1:
+        xt = x0
+        yt = y0
+        zt = z0
+        x0 = x1
+        y0 = y1
+        z0 = z1
+        x1 = xt
+        y1 = yt
+        z1 = zt
+
+    x = x0
+    y = y0
+    z = z0
+    A = 2 * (y1 - y0)
+    B = -2 * (x1 - x0)
+    wide = False
+    tall = False
+
+    if ( abs(x1-x0) >= abs(y1 - y0) ): #octants 1/8
+        wide = True
+        loop_start = x
+        loop_end = x1
+        dx_east = dx_northeast = 1
+        dy_east = 0
+        d_east = A
+        distance = x1 - x
+        if ( A > 0 ): #octant 1
+            d = A + B/2
+            dy_northeast = 1
+            d_northeast = A + B
+        else: #octant 8
+            d = A - B/2
+            dy_northeast = -1
+            d_northeast = A - B
+
+    else: #octants 2/7
+        tall = True
+        dx_east = 0
+        dx_northeast = 1
+        distance = abs(y1 - y)
+        if ( A > 0 ): #octant 2
+            d = A/2 + B
+            dy_east = dy_northeast = 1
+            d_northeast = A + B
+            d_east = B
+            loop_start = y
+            loop_end = y1
+        else: #octant 7
+            d = A/2 - B
+            dy_east = dy_northeast = -1
+            d_northeast = A - B
+            d_east = -1 * B
+            loop_start = y1
+            loop_end = y
+
+    while ( loop_start < loop_end ):
+        plot( screen, zbuffer, color, x, y, z )
+        if ( (wide and ((A > 0 and d > 0) or (A < 0 and d < 0))) or
+             (tall and ((A > 0 and d < 0) or (A < 0 and d > 0 )))):
+            x+= dx_northeast
+            y+= dy_northeast
+            d+= d_northeast
+        else:
+            x+= dx_east
+            y+= dy_east
+            d+= d_east
+        loop_start+= 1
+
+    plot( screen, zbuffer, color, x, y, z )
+
