@@ -16,29 +16,8 @@ from draw import *
   with the name being used.
   jdyrlandweaver
   ==================== """
-def light_pass( symbols ):
-
-    shading_mode = "flat"
-    ambient = [0, 0, 0] #default
-    constants = {}
-    lights = {}
-
-    for symbol in symbols:
-        s = symbols[symbol]
-        
-        if s[0] == "shading":
-            shading_mode = s[1]
-        elif s[0] == "ambient":
-            ambient = (s[1],s[2],s[3])
-        elif s[0] == "constants":            
-            constants[symbol] = s[1]            
-        elif s[0] == "light":
-            lights[symbol] = s[1]
-            
-    return (shading_mode, ambient, constants, lights)
-
 def first_pass( commands ):
-    print commands
+
     frameCheck = varyCheck = nameCheck = False
     name = ''
     num_frames = 1
@@ -54,7 +33,6 @@ def first_pass( commands ):
             name = command[1]
             nameCheck = True
 
-            
     if varyCheck and not frameCheck:
         print 'Error: Vary command found without setting number of frames!'
         exit()
@@ -62,9 +40,8 @@ def first_pass( commands ):
     elif frameCheck and not nameCheck:
         print 'Animation code present but basename was not set. Using "frame" as basename.'
         name = 'frame'
-
+    
     return (name, num_frames)
-
 
 """======== second_pass( commands ) ==========
   In order to set the knobs for animation, we need to keep
@@ -110,14 +87,31 @@ def second_pass( commands, num_frames ):
                 #print 'knob: ' + knob_name + '\tvalue: ' + str(frames[f][knob_name])
     return frames
 
+#symbols is dict
+def lighting(symbols):
+    ambient = []
+    lights = {}
+    constants = {}
+    
+    for name in symbols:
+        thing = symbols[name]
+        if "ambient" in thing:
+            ambient = thing[1:4]
+        elif "constants" in thing:
+            constants[name] = thing[1]
+        elif "light" in thing:
+            lights[name] = thing[1]
+
+    lighting_info = {"ambient" : ambient, "lights" : lights, "constants" : constants}
+    print lighting_info
+    return lighting_info
+
 def run(filename):
-
-    print "for testing purposes!"
-
     """
     This function runs an mdl script
     """
     color = [255, 255, 255]
+
     tmp = new_matrix()
     ident( tmp )
 
@@ -129,21 +123,11 @@ def run(filename):
         print "Parsing failed."
         return
 
-    (shading_mode, ambient, constants, lights) = light_pass(symbols)
+    lighting_info = lighting(symbols)
     (name, num_frames) = first_pass(commands)
     frames = second_pass(commands, num_frames)
-
-
-    env = {}
-    env["shading_mode"] = shading_mode
-    env["ambient"] = ambient
-    env["lights"] = lights
-    env["constants"] = constants
-
-
     #print frames
-    step = 0.05
-
+    step = 0.005
     #print symbols
 
     for f in range(num_frames):
@@ -163,7 +147,6 @@ def run(filename):
                 #print '\tkob: ' + knob + '\tvalue: ' + str(frame[knob])
                 
         for command in commands:
-            #print command
             c = command[0]
             args = command[1:]
             knob_value = 1
@@ -179,19 +162,19 @@ def run(filename):
                         args[0], args[1], args[2],
                         args[3], args[4], args[5])
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zb, color, env)
+                draw_polygons(tmp, screen, zb, lighting_info, args[6])
                 tmp = []
             elif c == 'sphere':
                 add_sphere(tmp,
                            args[0], args[1], args[2], args[3], step)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zb, color, env)
+                draw_polygons(tmp, screen, zb, lighting_info, args[4])
                 tmp = []
             elif c == 'torus':
                 add_torus(tmp,
                           args[0], args[1], args[2], args[3], args[4], step)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zb, color, env)
+                draw_polygons(tmp, screen, zb, lighting_info, args[5])
                 tmp = []
             elif c == 'move':
                 if command[-1]:
@@ -229,11 +212,7 @@ def run(filename):
                 display(screen)
             elif c == 'save':
                 save_extension(screen, args[0])
-            elif c in ["vary","basename","frames"]:
-                pass            
-            elif c in ["shading","ambient","light"]:
-                pass
-
+        
         if num_frames > 1:
             fname = 'anim/%s%03d.png' % (name, f)
             print 'Saving frame: ' + fname

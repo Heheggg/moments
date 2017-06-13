@@ -5,33 +5,42 @@ from matrix import *
 from math import *
 from gmath import *
 
+def magnitude(v):
+    return math.sqrt(sum(i**2 for i in v))
 
-def light(A, KA, L, dKA, sKA):
-    I_amb = A * KA
+def normalize(v):
+    return [i/magnitude(v) for i in v]
 
-    pass
+def dot_prod(a,b):
+    return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
+
+def get_color(normal, lighting_info, lighting_name):
+    ambient = get_ambient(lighting_info, lighting_name)
+    diffuse = get_diffuse(normal, lighting_info, lighting_name)
+    specular = get_specular(normal, lighting_info, lighting_name)
+    I = [ambient[0] + diffuse[0] + specular[0],
+         ambient[1] + diffuse[1] + specular[1],
+        ambient[2] + diffuse[2] + specular[2]]
+    return [int(max(min(x, 255), 0)) for x in I]
 
 def add_polygon( polygons, x0, y0, z0, x1, y1, z1, x2, y2, z2 ):
     add_point(polygons, x0, y0, z0);
     add_point(polygons, x1, y1, z1);
     add_point(polygons, x2, y2, z2);
 
-def draw_polygons( matrix, screen,zb, color ):
+def draw_polygons( matrix, screen,zb, lighting_info, lighting_name  ):
     if len(matrix) < 2:
         print 'Need at least 3 points to draw'
         return
 
     point = 0
-    r = int(random.random()*255)
-    g = int(random.random()*255)
-    b = int(random.random()*255)
-    
     while point < len(matrix) - 2:
 
         normal = calculate_normal(matrix, point)[:]
         print normal
         if normal[2] > 0:
-            scanline(matrix,point,screen,zb,[r,g,b])
+            color = get_color(normal, lighting_info, lighting_name)
+            scanline(matrix,point,screen,zb,color)
             
             draw_line( int(matrix[point][0]),
                        int(matrix[point][1]),
@@ -54,10 +63,6 @@ def draw_polygons( matrix, screen,zb, color ):
                        int(matrix[point+2][1]),
                        matrix[point+2][2],
                        screen, zb, color)   
-
-            r = (r + 31) % 256
-            g = (r + 109) % 256
-            b = (r + 199) % 256
 
         point += 3
         

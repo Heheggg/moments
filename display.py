@@ -30,8 +30,10 @@ def new_zbuffer( width = XRES, height = YRES ):
 def plot( screen, zbuffer, color, x, y, z):
     newy = YRES - 1 - y
     if ( x >= 0 and x < XRES and newy >= 0 and newy < YRES ):
-        screen[newy][x] = color[:]
-
+        if zbuffer[y][x] < z:
+            screen[newy][x] = color[:]
+            zbuffer[y][x] = z
+            
 def clear_screen( screen ):
     for y in range( len(screen) ):
         for x in range( len(screen[y]) ):
@@ -77,5 +79,3 @@ def make_animation( name ):
     f = fork()
     if f == 0:
         execlp('convert', 'convert', '-delay', '3', name_arg, name)
-    
-    
