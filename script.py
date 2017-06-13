@@ -4,24 +4,41 @@ from matrix import *
 from draw import *
 
 """======== first_pass( commands, symbols ) ==========
-
   Checks the commands array for any animation commands
   (frames, basename, vary)
   
   Should set num_frames and basename if the frames 
   or basename commands are present
-
   If vary is found, but frames is not, the entire
   program should exit.
-
   If frames is found, but basename is not, set name
   to some default value, and print out a message
   with the name being used.
-
   jdyrlandweaver
   ==================== """
-def first_pass( commands ):
+def light_pass( symbols ):
 
+    shading_mode = "flat"
+    ambient = [0, 0, 0] #default
+    constants = {}
+    lights = {}
+
+    for symbol in symbols:
+        s = symbols[symbol]
+        
+        if s[0] == "shading":
+            shading_mode = s[1]
+        elif s[0] == "ambient":
+            ambient = (s[1],s[2],s[3])
+        elif s[0] == "constants":            
+            constants[symbol] = s[1]            
+        elif s[0] == "light":
+            lights[symbol] = s[1]
+            
+    return (shading_mode, ambient, constants, lights)
+
+def first_pass( commands ):
+    print commands
     frameCheck = varyCheck = nameCheck = False
     name = ''
     num_frames = 1
@@ -37,6 +54,7 @@ def first_pass( commands ):
             name = command[1]
             nameCheck = True
 
+            
     if varyCheck and not frameCheck:
         print 'Error: Vary command found without setting number of frames!'
         exit()
@@ -44,21 +62,19 @@ def first_pass( commands ):
     elif frameCheck and not nameCheck:
         print 'Animation code present but basename was not set. Using "frame" as basename.'
         name = 'frame'
-    
+
     return (name, num_frames)
 
-"""======== second_pass( commands ) ==========
 
+"""======== second_pass( commands ) ==========
   In order to set the knobs for animation, we need to keep
   a seaprate value for each knob for each frame. We can do
   this by using an array of dictionaries. Each array index
   will correspond to a frame (eg. knobs[0] would be the first
   frame, knobs[2] would be the 3rd frame and so on).
-
   Each index should contain a dictionary of knob values, each
   key will be a knob name, and each value will be the knob's
   value for that frame.
-
   Go through the command array, and when you find vary, go 
   from knobs[0] to knobs[frames-1] and add (or modify) the
   dictionary corresponding to the given knob with the
@@ -95,6 +111,9 @@ def second_pass( commands, num_frames ):
     return frames
 
 def run(filename):
+
+    print "for testing purposes!"
+
     """
     This function runs an mdl script
     """
@@ -110,10 +129,20 @@ def run(filename):
         print "Parsing failed."
         return
 
+    (shading_mode, ambient, constants, lights) = light_pass(symbols)
     (name, num_frames) = first_pass(commands)
     frames = second_pass(commands, num_frames)
+
+
+    env = {}
+    env["shading_mode"] = shading_mode
+    env["ambient"] = ambient
+    env["lights"] = lights
+    env["constants"] = constants
+
+
     #print frames
-    step = 0.1
+    step = 0.05
 
     #print symbols
 
@@ -150,19 +179,19 @@ def run(filename):
                         args[0], args[1], args[2],
                         args[3], args[4], args[5])
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zb, color)
+                draw_polygons(tmp, screen, zb, color, env)
                 tmp = []
             elif c == 'sphere':
                 add_sphere(tmp,
                            args[0], args[1], args[2], args[3], step)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zb, color)
+                draw_polygons(tmp, screen, zb, color, env)
                 tmp = []
             elif c == 'torus':
                 add_torus(tmp,
                           args[0], args[1], args[2], args[3], args[4], step)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zb, color)
+                draw_polygons(tmp, screen, zb, color, env)
                 tmp = []
             elif c == 'move':
                 if command[-1]:
@@ -200,7 +229,11 @@ def run(filename):
                 display(screen)
             elif c == 'save':
                 save_extension(screen, args[0])
-        
+            elif c in ["vary","basename","frames"]:
+                pass            
+            elif c in ["shading","ambient","light"]:
+                pass
+
         if num_frames > 1:
             fname = 'anim/%s%03d.png' % (name, f)
             print 'Saving frame: ' + fname
@@ -208,4 +241,3 @@ def run(filename):
 
     if num_frames > 1:
         make_animation(name)
-    
