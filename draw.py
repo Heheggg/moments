@@ -11,7 +11,7 @@ def magnitude(v):
 def normalize(v):
     return [i/magnitude(v) for i in v]
 
-def dot_prod(a,b):
+def dot_product(a,b):
     return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 
 def get_color(normal, lighting_info, lighting_name):
@@ -119,6 +119,68 @@ def scanline(matrix, i, screen, zbuffer, color):
         z0 += d_z0
         z1 += d_z1
 
+def get_ambient(lighting_info, lighting_name):
+    source_color = lighting_info["ambient"]
+    const = lighting_info["constants"][lighting_name]
+    ambient_const = [ const["red"][0], const["green"][0], const["blue"][0] ]
+    ambient = [ ambient_const[0] * source_color[0], #red
+                ambient_const[1] * source_color[1], #green
+                ambient_const[2] * source_color[2] ] #blue
+    return ambient
+    
+def get_diffuse(normal, lighting_info, lighting_name):
+    const = lighting_info["constants"][lighting_name]
+    diffuse_const = [ const["red"][1], const["green"][1], const["blue"][1] ]
+
+    normal = normalize(normal)
+
+    total_diffuse = [0, 0, 0]
+    for entry in lighting_info["lights"]:
+        light_source = lighting_info["lights"][entry]
+        source_color = light_source["color"]
+        location = light_source["location"]
+        dot_prod = dot_product(normal, location)
+
+        diffuse = [ source_color[0] * diffuse_const[0] * dot_prod,
+                    source_color[1] * diffuse_const[1] * dot_prod,
+                    source_color[2] * diffuse_const[2] * dot_prod ]
+        total_diffuse = [ total_diffuse[0] + diffuse[0],
+                          total_diffuse[1] + diffuse[1],
+                          total_diffuse[2] + diffuse[2] ]
+    return total_diffuse
+
+def get_specular(normal, lighting_info, lighting_name):
+    const = lighting_info["constants"][lighting_name]
+    specular_const = [ const["red"][1], const["green"][1], const["blue"][1] ]
+
+    normal = normalize(normal)
+
+    total_specular = [0, 0, 0]
+    for entry in lighting_info["lights"]:
+        light_source = lighting_info["lights"][entry]
+        source_color = light_source["color"]
+        location = light_source["location"]
+        dot_prod = dot_product(normal, location)
+
+        a = [2 * dot_prod * x for x in normal]
+        b = [ a[0] - location[0],
+              a[1] - location[1],
+              a[2] - location[2] ]
+        b = normalize(b)
+        view = normalize([1, 1, 1])
+        c = dot_product(b, view)
+        
+        specular_r = source_color[0] * specular_const[0] * c
+        specular_g = source_color[1] * specular_const[1] * c
+        specular_b = source_color[2] * specular_const[2] * c
+
+        total_specular = [ total_specular[0] + specular_r,
+                           total_specular[1] + specular_g,
+                           total_specular[2] + specular_b ]
+
+    return total_specular
+
+        
 def add_box( polygons, x, y, z, width, height, depth ):
     x1 = x + width
     y1 = y - height

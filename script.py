@@ -127,7 +127,7 @@ def run(filename):
     (name, num_frames) = first_pass(commands)
     frames = second_pass(commands, num_frames)
     #print frames
-    step = 0.005
+    step = 0.01
     #print symbols
 
     for f in range(num_frames):
